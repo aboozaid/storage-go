@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 )
 
 var version = "v0.7.0"
@@ -19,6 +20,7 @@ type Client struct {
 type transport struct {
 	header  http.Header
 	baseUrl url.URL
+	mu sync.Mutex
 }
 
 func (t transport) RoundTrip(request *http.Request) (*http.Response, error) {

@@ -28,26 +28,28 @@ func (c *Client) UploadOrUpdateFile(
 ) (FileUploadResponse, error) {
 	path := removeEmptyFolderName(bucketId + "/" + relativePath)
 	uploadURL := c.clientTransport.baseUrl.String() + "/object/" + path
-
-	header := c.clientTransport.header.Clone()
+	c.clientTransport.mu.Lock()
+	
 	// Check on file options
 	if len(options) > 0 {
 		if options[0].CacheControl != nil {
-			header.Set("cache-control", *options[0].CacheControl)
+			c.clientTransport.header.Set("cache-control", *options[0].CacheControl)
 		}
 		if options[0].ContentType != nil {
-			header.Set("content-type", *options[0].ContentType)
+			c.clientTransport.header.Set("content-type", *options[0].ContentType)
 		}
 		if options[0].Upsert != nil {
-			header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
+			c.clientTransport.header.Set("x-upsert", strconv.FormatBool(*options[0].Upsert))
 		}
 	}
-	// // Ensure headers are reset after request completes
-	// defer func() {
-	// 	header.Set("content-type", "application/json")
-	// 	c.clientTransport.header.Del("cache-control")
-	// 	c.clientTransport.header.Del("x-upsert")
-	// }()
+	// Ensure headers are reset after request completes
+	defer func() {
+		c.clientTransport.header.Set("content-type", "application/json")
+		c.clientTransport.header.Del("cache-control")
+		c.clientTransport.header.Del("x-upsert")
+
+		c.clientTransport.mu.Unlock()
+	}()
 
 	method := http.MethodPost
 	if update {
@@ -58,8 +60,6 @@ func (c *Client) UploadOrUpdateFile(
 	if err != nil {
 		return FileUploadResponse{}, err
 	}
-
-	req.Header = header
 
 	var response FileUploadResponse
 	_, err = c.Do(req, &response)
